@@ -6,6 +6,7 @@ use Core\Controller;
 use Core\Request;
 use Core\Response;
 use Core\Uuid;
+use PDOException;
 
 class AdminController extends Controller
 {
@@ -20,15 +21,22 @@ class AdminController extends Controller
 
     public function dashboard(Request $request)
     {
-        $this->ensureAdmin($request);
+        try {
+            $this->ensureAdmin($request);
 
-        $stats = [
-            'drivers' => $this->db->getConnection()->query("SELECT COUNT(*) FROM users WHERE role = 'driver'")->fetchColumn(),
-            'students' => $this->db->getConnection()->query("SELECT COUNT(*) FROM users WHERE role = 'student'")->fetchColumn(),
-            'parents' => $this->db->getConnection()->query("SELECT COUNT(*) FROM users WHERE role = 'parent'")->fetchColumn(),
-        ];
+            $stats = [
+                'drivers' => $this->db->getConnection()->query("SELECT COUNT(*) FROM users WHERE role = 'driver'")->fetchColumn(),
+                'students' => $this->db->getConnection()->query("SELECT COUNT(*) FROM users WHERE role = 'student'")->fetchColumn(),
+                'parents' => $this->db->getConnection()->query("SELECT COUNT(*) FROM users WHERE role = 'parent'")->fetchColumn(),
+            ];
 
-        Response::json($stats);
+            Response::json($stats);
+        } catch (PDOException $e) {
+            return Response::error(
+                'Failed to fetch stats: ' . $e->getMessage(),
+                500
+            );
+        }
     }
 
     public function getUsers(Request $request)
@@ -162,3 +170,6 @@ class AdminController extends Controller
         }
     }
 }
+
+
+?>
