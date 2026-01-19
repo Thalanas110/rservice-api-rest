@@ -128,18 +128,26 @@ class AuthController extends Controller
                 'role' => $user['role']
             ]);
         } catch (\Exception $e) {
-            Response::error('Login failed: ' . $e->getMessage(), 500);
+            return Response::error(
+                'Login failed: ' . $e->getMessage(),
+                500
+            );
         }
     }
 
     private function generateUniqueDriverCode(PDO $pdo): string
     {
-        do {
-            $code = str_pad((string) mt_rand(0, 999999), 6, '0', STR_PAD_LEFT);
-            $stmt = $pdo->prepare("SELECT COUNT(*) FROM drivers WHERE code = ?");
-            $stmt->execute([$code]);
-            $exists = $stmt->fetchColumn() > 0;
-        } while ($exists);
-        return $code;
+        try {
+            do {
+                $code = str_pad((string) mt_rand(0, 999999), 6, '0', STR_PAD_LEFT);
+                $stmt = $pdo->prepare("SELECT COUNT(*) FROM drivers WHERE code = ?");
+                $stmt->execute([$code]);
+                $exists = $stmt->fetchColumn() > 0;
+            } while ($exists);
+            return $code;
+        } catch (\Exception $e) {
+            Response::error('' . $e->getMessage(), 500);
+            return '';
+        }
     }
 }

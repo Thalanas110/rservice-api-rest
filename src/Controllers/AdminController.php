@@ -33,31 +33,45 @@ class AdminController extends Controller
 
     public function getUsers(Request $request)
     {
-        $this->ensureAdmin($request);
-        $role = $request->getQuery('role');
+        try {
+            $this->ensureAdmin($request);
+            $role = $request->getQuery('role');
 
-        $allowedRoles = ['driver', 'student', 'parent'];
-        if (!in_array($role, $allowedRoles)) {
-            Response::error('Invalid role filter');
+            $allowedRoles = ['driver', 'student', 'parent'];
+            if (!in_array($role, $allowedRoles)) {
+                Response::error('Invalid role filter');
+            }
+
+            $stmt = $this->db->getConnection()->prepare("SELECT uuid, name, email, role, created_at FROM users WHERE role = ?");
+            $stmt->execute([$role]);
+            $users = $stmt->fetchAll();
+
+            // Convert UUIDs
+            foreach ($users as &$user) {
+                $user['uuid'] = Uuid::fromBin($user['uuid']);
+            }
+
+            Response::json($users);
+        } catch (PDOException $e) {
+            return Response::error(
+                'Failed to fetch users: ' . $e->getMessage(),
+                500
+            );
         }
-
-        $stmt = $this->db->getConnection()->prepare("SELECT uuid, name, email, role, created_at FROM users WHERE role = ?");
-        $stmt->execute([$role]);
-        $users = $stmt->fetchAll();
-
-        // Convert UUIDs
-        foreach ($users as &$user) {
-            $user['uuid'] = Uuid::fromBin($user['uuid']);
-        }
-
-        Response::json($users);
     }
 
     public function createUser(Request $request)
     {
-        $this->ensureAdmin($request);
-        // Implementation similar to AuthController::register but by Admin
-        Response::json(['message' => 'Not implemented yet'], 501);
+        try {
+            $this->ensureAdmin($request);
+            // Implementation similar to AuthController::register but by Admin
+            Response::json(['message' => 'Not implemented yet'], 501);
+        } catch (PDOException $e) {
+            return Response::error(
+                'Failed to create user: ' . $e->getMessage(),
+                500
+            );
+        }
     }
 
     public function updateUser(Request $request, $uuid)
@@ -68,55 +82,83 @@ class AdminController extends Controller
 
     public function deleteUser(Request $request, $uuid)
     {
-        $this->ensureAdmin($request);
+        try {
+            $this->ensureAdmin($request);
 
-        $uuidBin = Uuid::toBin($uuid);
-        $stmt = $this->db->getConnection()->prepare("DELETE FROM users WHERE uuid = ?");
-        $stmt->execute([$uuidBin]);
+            $uuidBin = Uuid::toBin($uuid);
+            $stmt = $this->db->getConnection()->prepare("DELETE FROM users WHERE uuid = ?");
+            $stmt->execute([$uuidBin]);
 
-        Response::json(['message' => 'User deleted']);
+            Response::json(['message' => 'User deleted']);
+        } catch (PDOException $e) {
+            return Response::error(
+                'Failed to delete user: ' . $e->getMessage(),
+                500
+            );
+        }
     }
 
     public function getDriverLocation(Request $request, $uuid)
     {
-        $this->ensureAdmin($request);
+        try {
+            $this->ensureAdmin($request);
 
-        $uuidBin = Uuid::toBin($uuid);
-        $stmt = $this->db->getConnection()->prepare("SELECT lat, lng, location_updated as updated_at FROM drivers WHERE user_uuid = ?");
-        $stmt->execute([$uuidBin]);
-        $location = $stmt->fetch();
+            $uuidBin = Uuid::toBin($uuid);
+            $stmt = $this->db->getConnection()->prepare("SELECT lat, lng, location_updated as updated_at FROM drivers WHERE user_uuid = ?");
+            $stmt->execute([$uuidBin]);
+            $location = $stmt->fetch();
 
-        if (!$location) {
-            Response::error('Driver not found or no location');
+            if (!$location) {
+                Response::error('Driver not found or no location');
+            }
+
+            Response::json($location);
+        } catch (PDOException $e) {
+            return Response::error(
+                'Failed to delete user: ' . $e->getMessage(),
+                500
+            );
         }
-
-        Response::json($location);
     }
 
     public function assignStudent(Request $request)
     {
-        $this->ensureAdmin($request);
-        $body = $request->getBody();
+        try {
+            $this->ensureAdmin($request);
+            $body = $request->getBody();
 
-        $driverUuid = Uuid::toBin($body['driver_uuid']);
-        $studentUuid = Uuid::toBin($body['student_uuid']);
+            $driverUuid = Uuid::toBin($body['driver_uuid']);
+            $studentUuid = Uuid::toBin($body['student_uuid']);
 
-        $stmt = $this->db->getConnection()->prepare("UPDATE students SET driver_uuid = ? WHERE user_uuid = ?");
-        $stmt->execute([$driverUuid, $studentUuid]);
+            $stmt = $this->db->getConnection()->prepare("UPDATE students SET driver_uuid = ? WHERE user_uuid = ?");
+            $stmt->execute([$driverUuid, $studentUuid]);
 
-        Response::json(['message' => 'Student assigned to driver']);
+            Response::json(['message' => 'Student assigned to driver']);
+        } catch (PDOException $e) {
+            return Response::error(
+                'Failed to assign student: ' . $e->getMessage(),
+                500
+            );
+        }
     }
 
     public function updateDriverLimit(Request $request, $uuid)
     {
-        $this->ensureAdmin($request);
-        $body = $request->getBody();
-        $limit = $body['max_students'] ?? 7;
+        try {
+            $this->ensureAdmin($request);
+            $body = $request->getBody();
+            $limit = $body['max_students'] ?? 7;
 
-        $uuidBin = Uuid::toBin($uuid);
-        $stmt = $this->db->getConnection()->prepare("UPDATE drivers SET max_students = ? WHERE user_uuid = ?");
-        $stmt->execute([$limit, $uuidBin]);
+            $uuidBin = Uuid::toBin($uuid);
+            $stmt = $this->db->getConnection()->prepare("UPDATE drivers SET max_students = ? WHERE user_uuid = ?");
+            $stmt->execute([$limit, $uuidBin]);
 
-        Response::json(['message' => 'Driver limit updated']);
+            Response::json(['message' => 'Driver limit updated']);
+        } catch (PDOException $e) {
+            return Response::error(
+                'Failed to update driver limit: ' . $e->getMessage(),
+                500
+            );
+        }
     }
 }
