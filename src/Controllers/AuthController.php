@@ -93,32 +93,43 @@ class AuthController extends Controller
         }
     }
 
+    /* 
+    this function is mainly the login function.
+    First you wil be checking the body, then get the email and password.
+    If the user exists then good, if not then yeah 401 error for invalid credentials.
+
+    We also convert the uuid string to a token via roles.
+    */
     public function login(Request $request)
     {
-        $body = $request->getBody();
-        $email = $body['email'] ?? '';
-        $password = $body['password'] ?? '';
+        try {
+            $body = $request->getBody();
+            $email = $body['email'] ?? '';
+            $password = $body['password'] ?? '';
 
-        $user = $this->userModel->findByEmail($email);
+            $user = $this->userModel->findByEmail($email);
 
-        if (!$user || !password_verify($password, $user['password_hash'])) {
-            Response::error('Invalid credentials', 401);
+            if (!$user || !password_verify($password, $user['password_hash'])) {
+                Response::error('Invalid credentials', 401);
+            }
+
+            // string to token uuid conversion
+            $userUuid = Uuid::fromBin($user['uuid']);
+
+            $jwt = new JWT();
+            $token = $jwt->generate([
+                'uuid' => $userUuid,
+                'role' => $user['role']
+            ]);
+
+            Response::json([
+                'message' => 'Login successful',
+                'token' => $token,
+                'role' => $user['role']
+            ]);
+        } catch (\Exception $e) {
+            Response::error('Login failed: ' . $e->getMessage(), 500);
         }
-
-        // Convert uuid binary to string for token
-        $userUuid = Uuid::fromBin($user['uuid']);
-
-        $jwt = new JWT();
-        $token = $jwt->generate([
-            'uuid' => $userUuid,
-            'role' => $user['role']
-        ]);
-
-        Response::json([
-            'message' => 'Login successful',
-            'token' => $token,
-            'role' => $user['role']
-        ]);
     }
 
     private function generateUniqueDriverCode(PDO $pdo): string
