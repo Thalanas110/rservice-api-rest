@@ -86,3 +86,23 @@ biome's linter will catch most issues automatically. Focus your attention on:
 6. **Documentation** - Add comments for complex logic, but prefer self-documenting code
 ---
 Most formatting and common issues are automatically fixed by biome. Run `npm ultracite fix` before committing to ensure compliance.
+
+
+
+Project Workflow Rules
+File Creation Protocol
+Before creating another file: Ensure that Ultracite is done properly AND that a commit has to be done first
+No new files can be created until:
+Ultracite process is completed and verified as proper
+A commit has been made for the current changes
+Commit Timing Requirements
+Commit frequency: Commits should be made within 15 minutes of each other
+Maximum interval: No more than 15 minutes should pass between consecutive commits
+Atomic commits: Each commit should represent a complete, logical unit of work
+Verification Checklist
+Before proceeding with any file creation:
+[ ] Verify Ultracite completion status
+[ ] Confirm previous commit has been made
+[ ] Check time since last commit (must be ≤ 15 minutes)
+[ ] Ensure all changes are properly staged and committed
+This rule ensures proper workflow management and prevents incomplete work from being left uncommitted for extended periods.
