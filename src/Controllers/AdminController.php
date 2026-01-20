@@ -11,6 +11,10 @@ use PDOException;
 class AdminController extends Controller
 {
 
+    /*
+    this function ensures if the user is an admin. If its not, then throw 403: forbidden to access, because why tf
+    would someone let an admin do this?
+    */
     private function ensureAdmin(Request $request)
     {
         $user = $request->getAttribute('user');
@@ -19,6 +23,9 @@ class AdminController extends Controller
         }
     }
 
+    /*
+    this function returns the dashboard stats. Usually only the given driver, student, parent. Otheerwise, return 500.
+    */
     public function dashboard(Request $request)
     {
         try {
@@ -39,6 +46,10 @@ class AdminController extends Controller
         }
     }
 
+
+    /*
+    this function just returns the users based on the role. If the role is not valid, throw error.
+    */
     public function getUsers(Request $request)
     {
         try {
@@ -68,6 +79,12 @@ class AdminController extends Controller
         }
     }
 
+    /*
+    this function creates a user at request. There are 4 roles: admin, student, driver, parent, and at the same time, 4 fields:
+    role, name, email, and password.
+    First we will be validating if the role is valid or existing, then check if the email ALREADY exists. If it does, throw error.
+    Otherwise, we will be creating a new user dependent on role.
+    */
     public function createUser(Request $request) {
         $this->ensureAdmin($request);
         $body = $request->getBody();
@@ -77,14 +94,13 @@ class AdminController extends Controller
         $email = $body['email'] ?? '';
         $password = $body['password'] ?? '';
         
-        // Basic Validation
         if (!in_array($role, ['admin', 'student', 'driver', 'parent'])) {
             Response::error('Invalid role');
         }
         
-        // Check email
         $stmt = $this->db->getConnection()->prepare("SELECT 1 FROM users WHERE email = ?");
         $stmt->execute([$email]);
+        // if email already exists, throw error
         if ($stmt->fetch()) {
             Response::error('Email already exists');
         }
@@ -93,7 +109,6 @@ class AdminController extends Controller
         try {
             $pdo->beginTransaction();
             
-            // Create User (Reusing logic logic or calling User model if updated, here manual for custom cols)
             $uuid = Uuid::generate();
             $uuidBin = Uuid::toBin($uuid);
             $hash = password_hash($password, PASSWORD_BCRYPT);
@@ -101,10 +116,9 @@ class AdminController extends Controller
             $stmt = $pdo->prepare("INSERT INTO users (uuid, role, name, email, password_hash) VALUES (?, ?, ?, ?, ?)");
             $stmt->execute([$uuidBin, $role, $name, $email, $hash]);
             
-            // Role Specifics
+            // role validation dependent on role (this should be manually selected by whoever is registering into the app)
             if ($role === 'driver') {
                 $maxStudents = $body['max_students'] ?? 7;
-                // Generate Code
                 $code = '';
                 do {
                     $code = str_pad((string)mt_rand(0, 999999), 6, '0', STR_PAD_LEFT);
@@ -132,6 +146,11 @@ class AdminController extends Controller
         }
     }
 
+    /* 
+    this function involves mainly updating the user from the admin endpoint.
+    We first ensure that we're an admin, then do a request with the uuids. We will be updating the user based on the uuid.
+    
+    */
     public function updateUser(Request $request, $uuid) {
         $this->ensureAdmin($request);
         $body = $request->getBody();
@@ -149,8 +168,7 @@ class AdminController extends Controller
             $params[] = $body['email'];
         }
         
-        // Password update could be here too but separate endpoint is safer usually.
-        // Prompt implies general update.
+        // separate endpoint for password is placed.
         
         if (!empty($fields)) {
             $params[] = $uuidBin;
@@ -158,9 +176,8 @@ class AdminController extends Controller
             $stmt->execute($params);
         }
         
-        // Role specific updates
+        // This function checks if a driver has reached maximum number of students OR/AND sets them.
         if (isset($body['max_students'])) {
-            // Check if user is driver
             $stmt = $this->db->getConnection()->prepare("SELECT role FROM users WHERE uuid = ?");
             $stmt->execute([$uuidBin]);
             if ($stmt->fetchColumn() === 'driver') {
@@ -172,6 +189,10 @@ class AdminController extends Controller
         Response::json(['message' => 'User updated']);
     }
 
+    /*
+    this function deletes the user from the admin endpoint.
+    We first ensure that we're an admin, then do a request with the uuids. We will be deleting the user based on the uuid.
+    */
     public function deleteUser(Request $request, $uuid)
     {
         try {

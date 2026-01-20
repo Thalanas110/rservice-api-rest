@@ -6,37 +6,52 @@ use Core\Controller;
 use Core\Request;
 use Core\Response;
 use Core\Uuid;
+use PDOException;
 
 class DriverController extends Controller {
     
     private function ensureDriver(Request $request) {
-        $user = $request->getAttribute('user');
-        if ($user['role'] !== 'driver') {
-            Response::error('Forbidden', 403);
+        try {
+            $user = $request->getAttribute('user');
+            if ($user['role'] !== 'driver') {
+                Response::error('Forbidden', 403);
+            }
+            return $user;
         }
-        return $user;
+        catch (PDOException $e) {
+            Response::error('Failed to fetch user: ' . $e->getMessage(), 500);
+        }
     }
 
     public function getProfile(Request $request) {
-        $userCtx = $this->ensureDriver($request);
-        $uuidBin = Uuid::toBin($userCtx['uuid']);
-        
-        $stmt = $this->db->getConnection()->prepare("
-            SELECT u.name, u.email, d.max_students, d.code 
-            FROM users u 
-            JOIN drivers d ON u.uuid = d.user_uuid 
-            WHERE u.uuid = ?
-        ");
-        $stmt->execute([$uuidBin]);
-        $profile = $stmt->fetch();
-        
-        Response::json($profile);
+        try {
+            $userCtx = $this->ensureDriver($request);
+            $uuidBin = Uuid::toBin($userCtx['uuid']);
+            
+            $stmt = $this->db->getConnection()->prepare("
+                SELECT u.name, u.email, d.max_students, d.code 
+                FROM users u 
+                JOIN drivers d ON u.uuid = d.user_uuid 
+                WHERE u.uuid = ?
+            ");
+            $stmt->execute([$uuidBin]);
+            $profile = $stmt->fetch();
+            
+            Response::json($profile);
+        }
+        catch (PDOException $e) {
+            Response::error('Failed to fetch user: ' . $e->getMessage(), 500);  
+        }
     }
 
     public function updateProfile(Request $request) {
-        $userCtx = $this->ensureDriver($request);
-        // Common update logic... skip for brevity or implement if essential
-        Response::json(['message' => 'Not implemented']);
+        try {
+            $userCtx = $this->ensureDriver($request);
+            Response::json(['message' => 'Not implemented']);
+        }
+        catch (PDOException $e) {
+            Response::error('Failed to update user: ' . $e->getMessage(), 500);  
+        }
     }
 
     public function getCode(Request $request) {
