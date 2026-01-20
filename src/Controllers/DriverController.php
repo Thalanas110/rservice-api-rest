@@ -46,7 +46,7 @@ class DriverController extends Controller {
 
     public function updateProfile(Request $request) {
         try {
-            $userCtx = $this->ensureDriver($request);
+            $this->ensureDriver($request);
             Response::json(['message' => 'Not implemented']);
         }
         catch (PDOException $e) {
@@ -55,56 +55,71 @@ class DriverController extends Controller {
     }
 
     public function getCode(Request $request) {
-        $userCtx = $this->ensureDriver($request);
-        $uuidBin = Uuid::toBin($userCtx['uuid']);
+        try {
+            $userCtx = $this->ensureDriver($request);
+            $uuidBin = Uuid::toBin($userCtx['uuid']);
+            
+            $stmt = $this->db->getConnection()->prepare("SELECT code FROM drivers WHERE user_uuid = ?");
+            $stmt->execute([$uuidBin]);
+            $data = $stmt->fetch();
         
-        $stmt = $this->db->getConnection()->prepare("SELECT code FROM drivers WHERE user_uuid = ?");
-        $stmt->execute([$uuidBin]);
-        $data = $stmt->fetch();
-        
-        Response::json($data);
+            Response::json($data);
+        }
+        catch (PDOException $e) {
+            Response::error('Failed to fetch code: ' . $e->getMessage(), 500);  
+        }
     }
 
     public function updateLocation(Request $request) {
-        $userCtx = $this->ensureDriver($request);
-        $uuidBin = Uuid::toBin($userCtx['uuid']);
-        $body = $request->getBody();
-        
-        $lat = $body['lat'] ?? null;
-        $lng = $body['lng'] ?? null;
-        
-        if ($lat === null || $lng === null) {
-            Response::error('Missing lat/lng');
-        }
+        try {
+            $userCtx = $this->ensureDriver($request);
+            $uuidBin = Uuid::toBin($userCtx['uuid']);
+            $body = $request->getBody();
+            
+            $lat = $body['lat'] ?? null;
+            $lng = $body['lng'] ?? null;
+            
+            if ($lat === null || $lng === null) {
+                Response::error('Missing lat/lng');
+            }
 
-        $stmt = $this->db->getConnection()->prepare("UPDATE drivers SET lat = ?, lng = ?, location_updated = NOW() WHERE user_uuid = ?");
-        $stmt->execute([$lat, $lng, $uuidBin]);
-        
-        Response::json(['message' => 'Location updated']);
+            $stmt = $this->db->getConnection()->prepare("UPDATE drivers SET lat = ?, lng = ?, location_updated = NOW() WHERE user_uuid = ?");
+            $stmt->execute([$lat, $lng, $uuidBin]);
+            
+            Response::json(['message' => 'Location updated']);
+        }
+        catch (PDOException $e) {
+            Response::error('Failed to update location: ' . $e->getMessage(), 500);  
+        }
     }
 
     public function getStudents(Request $request) {
-        $userCtx = $this->ensureDriver($request);
-        $driverUuidBin = Uuid::toBin($userCtx['uuid']);
+        try {
+            $userCtx = $this->ensureDriver($request);
+            $driverUuidBin = Uuid::toBin($userCtx['uuid']);
         
-        $stmt = $this->db->getConnection()->prepare("
-            SELECT u.uuid, s.anon_id 
-            FROM students s 
-            JOIN users u ON s.user_uuid = u.uuid 
-            WHERE s.driver_uuid = ?
-        ");
-        $stmt->execute([$driverUuidBin]);
-        $rows = $stmt->fetchAll();
-        
-        $students = [];
-        foreach ($rows as $row) {
-            $students[] = [
-                'uuid' => Uuid::fromBin($row['uuid']),
-                'name' => 'Student ' . $row['anon_id'], // Masking real name
-                'anon_id' => $row['anon_id']
-            ];
+            $stmt = $this->db->getConnection()->prepare("
+                SELECT u.uuid, s.anon_id 
+                FROM students s 
+                JOIN users u ON s.user_uuid = u.uuid 
+                WHERE s.driver_uuid = ?
+            ");
+            $stmt->execute([$driverUuidBin]);
+            $rows = $stmt->fetchAll();
+            
+            $students = [];
+            foreach ($rows as $row) {
+                $students[] = [
+                    'uuid' => Uuid::fromBin($row['uuid']),
+                    'name' => 'Student ' . $row['anon_id'],
+                    'anon_id' => $row['anon_id']
+                ];
+            }
+            
+            Response::json($students);
         }
-        
-        Response::json($students);
+        catch (PDOException $e) {
+            Response::error('Failed to fetch students: ' . $e->getMessage(), 500);  
+        }
     }
 }
