@@ -110,6 +110,7 @@ class AuthController extends Controller
             $user = $this->userModel->findByEmail($email);
 
             if (!$user || !password_verify($password, $user['password_hash'])) {
+                $this->logger->warning("Failed login attempt for email: $email");
                 Response::error('Invalid credentials', 401);
             }
 
@@ -122,12 +123,15 @@ class AuthController extends Controller
                 'role' => $user['role']
             ]);
 
+            $this->logger->info("User logged in: $email (Role: {$user['role']})");
+
             Response::json([
                 'message' => 'Login successful',
                 'token' => $token,
                 'role' => $user['role']
             ]);
         } catch (\Exception $e) {
+            $this->logger->error("Login error: " . $e->getMessage());
             return Response::error(
                 'Login failed: ' . $e->getMessage(),
                 500

@@ -138,10 +138,12 @@ class AdminController extends Controller
             }
             
             $pdo->commit();
+            $this->logger->info("Admin created user: $email ($role)");
             Response::json(['uuid' => $uuid, 'message' => 'User created'], 201);
             
         } catch (\Exception $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
+            $this->logger->error("Admin failed to create user: " . $e->getMessage());
             Response::error('Failed to create user: ' . $e->getMessage(), 500);
         }
     }
@@ -186,6 +188,7 @@ class AdminController extends Controller
             }
         }
 
+        $this->logger->info("Admin updated user: $uuid");
         Response::json(['message' => 'User updated']);
     }
 
@@ -202,8 +205,10 @@ class AdminController extends Controller
             $stmt = $this->db->getConnection()->prepare("DELETE FROM users WHERE uuid = ?");
             $stmt->execute([$uuidBin]);
 
+            $this->logger->info("Admin deleted user: $uuid");
             Response::json(['message' => 'User deleted']);
         } catch (PDOException $e) {
+            $this->logger->error("Admin failed to delete user: " . $e->getMessage());
             return Response::error(
                 'Failed to delete user: ' . $e->getMessage(),
                 500

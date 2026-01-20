@@ -86,9 +86,13 @@ class DriverController extends Controller {
             $stmt = $this->db->getConnection()->prepare("UPDATE drivers SET lat = ?, lng = ?, location_updated = NOW() WHERE user_uuid = ?");
             $stmt->execute([$lat, $lng, $uuidBin]);
             
+            // Log location update (maybe generic or verbose?)
+            // $this->logger->debug("Driver location updated for user {$userCtx['uuid']}");
+
             Response::json(['message' => 'Location updated']);
         }
         catch (PDOException $e) {
+            $this->logger->error("Failed to update location for driver: " . $e->getMessage());
             Response::error('Failed to update location: ' . $e->getMessage(), 500);  
         }
     }
